@@ -144,3 +144,110 @@ $$
 ---
 
 ### Graph-Level Features
+
+We want features that characterize the structure of an entire graph.
+
+##### Kernel methods
+
+Design kernels instead of feature vectors.
+
+- Kernel $K(G,G') \in \mathbb R$ measures similarity b/w data.
+
+- Kernel matrix $K = (K(G,G'))_{G,G'}$ must always be positive semidefinite (i.e., has positive eigenvalues)
+
+- There exists a feature representation $\phi(\cdot)$ such that $K(G,G') = \phi(G)^T\phi(G')$.
+
+- Once the kernel is defined, off-the-shelf ML model, such as kernel SVM, can be used to make prediction.
+
+##### Graph Kernels
+
+Measure similarity between two graphs.
+
+- Graphlet Kernel
+
+- Weisfeiler-Lehman Kernel
+
+- Other kernels are also proposed
+  
+  - Random-walk kernel
+  
+  - Shortest-path graph kernel
+  
+  - And any more...
+
+**Goal:** Design graph feature vector $\phi(G)$.
+
+**Key Idea:** Bag-of-Words (BoW) for a graph. Both Graphlet Kernel and Weisfeiler-Lehman (WL) Kernel use _Bag-of-_* representation of gtaph.
+
+---
+
+##### Graph-Level Graphlet Features
+
+**Key Idea:** Count number of different graphlets in a graph.
+
+> The graphlets here do not need to be connected and are not rooted.
+
+Given graph $G$, and a graphlet list $\mathcal G_k = (\mathcal g_1,\mathcal g_2, \dots, \mathcal g_{n_k})$, define the graphlet count vector $\mathcal f_G$ as
+
+$$
+(f_G)_i = \#(\mathcal g_i \subseteq G) \ \ for\ i=1,2,\dots,n_k
+$$
+
+Given two graphs, $G$ and $G'$, graphlet kernel is computed as
+
+$$
+K(G,G') = f_G^Tf_{G'}
+$$
+
+> If $G$ and $G'$ have different sizes, that will greatly skew the value.
+
+We normalize each feature vector by
+
+$$
+h_G = \frac {f_G}{Sum(f_G)} \\ \  \\
+K(G,G') = h_G^Th_{G'}
+$$
+
+**Limitations: Counting graphlets is expensive!**
+
+- Counting size-$k$ graphlets for a graph with size $n$ by enumeration takes $n^k$
+
+- This is unavoidable in the worst-case since subgraph isomorphism test is *NP-hard*
+
+- If a graph's node degree is bounded by $d$, an $O(nd^{k-1})$ algorithm exists to count all the graphlets of size $k$
+
+---
+
+##### Weisfeiler-Lehman Kernel
+
+**Goal:** Design an efficient graph feature descriptor $\phi(G)$
+
+**Idea:** Use neighborhood structure to iteratively enrich node vocabulary. 
+
+**Algorithm: Color Refinement**
+
+Given a graph $G$ with a set of nodes $V$.
+
+- Assign an initial color $c^{(0)}(v)$ to each node $v$.
+
+- Iteratively refine node colors by
+  
+  $$
+  c^{(k+1)}(v) = HASH(\{c^{(k)}(v), \{c^{(k)}(u)\}_{u \in N(v)}\})
+  $$
+  
+  where $HASH$ maps different inputs to different colors.
+
+- After $K$ steps of color refinement, $c^{(K)}(v)$ summarizes the structure of $K$-hop neighborhood.
+
+After color refinement, WL kernel counts number of nodes with a given color. The WL kernel value is computed by the inner product of the color count vectors.
+
+**Complexity**
+
+- WL kernel is computationally efficient. The time complexity for color refinement at each step is linear in #(edges), since it involves aggregating neighboring colors.
+
+- When computing a kernel value, only colors appeared in the two graphs need to be tracked. Thus, #(colors) is at most the total number of nodes.
+
+- Counting colors takes linear-time w.r.t. #(nodes).
+
+- In total, time complexity is linear in #(edges).
