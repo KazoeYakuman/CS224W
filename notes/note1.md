@@ -251,3 +251,159 @@ After color refinement, WL kernel counts number of nodes with a given color. The
 - Counting colors takes linear-time w.r.t. #(nodes).
 
 - In total, time complexity is linear in #(edges).
+
+---
+
+### Node Embedding
+
+**Task: Map nodes into an embedding space**
+
+- Similarity of embeddings between nodes indicates their similarity in the network.
+
+- Encode network information.
+
+- Potentially used for many downstream predictions.
+
+##### Learning Node Embeddings
+
+- Encoder maps from nodes to embeddings
+
+- Define a node similarity function. (i.e., a measure of similarity in the original network)
+
+- Decoder maps from embeddings to the similarith score.
+
+- Optimize the parameters of the encoder so that
+  
+  $$
+  similarity(u,v) \approx \mathbf Z_v^T \mathbf Z_u
+  $$
+
+**Encoder:** maps each node to a low-dimensional vector
+
+$$
+ENC(v) = \mathbf Z_v
+$$
+
+**Similarity function:** specifies how the relationships in vector space map to the relationships in the original network
+
+$$
+similarity(u,v) \approx \mathbf Z_v^T \mathbf Z_u
+$$
+
+##### "Shallow" Encoding
+
+Simplest encoding approach: Encoder is just an embedding-lookup.
+
+$$
+ENC(v) = \mathbf Z \cdot v
+$$
+
+Where $\mathbf Z \in \mathbb R^{d\times |\mathcal V|}$ (matrix, each column is a node embedding [what we learn/optimize]), $v \in \mathbb I^{|\mathcal V|}$ (indicator vector, all zeros except a one in column indicating node $v$).
+
+##### Random Walk Approaches for Node Embeddings
+
+###### Notation
+
+- Vector $\mathbf z_u$: The embedding of node $u$ (what we aim to find).
+
+- Probability $P(v|\mathbf z_u)$: The (predicted) probability of visiting node $v$ on random walks starting from node $u$.
+
+- Non-linear functions
+  
+  - Softmax function: Turns vector of $K$ real values (model prediction) into $K$ probabilities that sum to $1$
+    
+    $$
+    \sigma(\mathbf z)[i] = \frac {e^{\mathbf z[i]}}{\sum_{j=1}^{K}e^{\mathbf z[j]}}
+    $$
+  
+  - Sigmoid function: S-shaped function that turns real values into the range of $(0,1)$.
+    
+    $$
+    S(x) = \frac {1}{1+e^{-x}}
+    $$
+
+> **Random Walk:** Given a graph and a starting point, we select a neighbor of it at random, and move to this neighbor; then we select a neighbor of this point at random, and move to it, etc. The (random) sequence of points visited this way is a random walk on the graph.
+
+###### Random-Walk Embeddings
+
+- Estimate probability of visiting node $v$ on a random walk starting from node $u$ using some random walk strategy $R$.
+
+- Optimize embeddings to encode these random walk statistics.
+
+**Advantage**
+
+- Expressivity: Flexible stochasitic definition of node similarity that incorporates both local and higher-order neighborhood information. 
+  
+  > Idea: If random walk starting from node $u$ visits $v$ with high probability, $u$ and $v$ are similar (high-order multi-hop information)
+
+- Efficiency: Do not need to consider all node pairs when training; only need to consider pairs that co-occur on random walks.
+
+##### Unsupervised Feature Learning
+
+**Intuition:** Find embedding of nodes in $d-$dimensional space that preserves similarity.
+
+**Idea:** Learn node embedding such that nearby nodes are close together in the network.
+
+###### Feature Learning as Optimization
+
+Given $G = (V,E)$, our goal is to learn a mapping $f: u \rightarrow \mathbb R^d:f(u) = \mathbf z_u$.
+
+**Log-likelihood objective:**
+
+$$
+max_f \sum_{u\in V} \log P(N_R(u)|\mathbf z_u)
+$$
+
+$N_R(u)$ is the neighborhood of node $u$ by strategy $R$.
+
+Given node $u$, we want to learn feature representations that are predictive of the nodes in its random walk neighborhood $N_R(u)$.
+
+###### Random Walk Optimization
+
+- Run short fixed-length random walks starting from each node $u$ in the graph using some random walk strategy $R$.
+
+- For each node $u$ collect $N_R(u)$, the multiset of nodes visited on random walks starting from $u$.
+
+- Optimize embeddings according to: Given node $u$, predict its neighbors $N_R(u)$.
+
+Optimize embeddings $\mathbf z_u$ to maximize the likelihood of random walk co-occurrences.
+
+$$
+\mathcal L = \sum_{u \in V} \sum_{v\in N_R(u)} - \log (P(v|\mathbf z_u))
+$$
+
+Parameterize $P(v|\mathbf z_u)$ using softmax:
+
+$$
+P(v|\mathbf z_u) = \frac {\exp(\mathbf z_u^T \mathbf z_v)}
+{\sum_{n\in V} \exp (\mathbf z_u^T \mathbf z_n)}
+$$
+
+Putting it all together:
+
+$$
+\mathcal L = \sum_{u \in V} \sum_{v\in N_R(u)}-
+\log(\frac{\exp(\mathbf z_u^T \mathbf z_v)}{\sum_{n\in V} \exp(\mathbf 
+z_u^T \mathbf z_n)})
+$$
+
+- Sum over all nodes $u$.
+
+- Sum over nodes $v$ seen on random walks starting from $u$.
+
+- Predicted probability of $u$ and $v$ co-occuring on random walk.
+
+*Optimizing random walk embeddings = Finding embeddings $\mathbb z_u$ that minimize $\mathcal L$*.
+
+**Negative sampling**
+
+$$
+\log (\frac {\exp(\mathbf z_u^T \mathbf z_v)}{\sum_{n\in V} 
+\exp(\mathbf z_u^T\mathbf z_n)}) \approx 
+\log(\sigma(\mathbf z_u^T \mathbf z_v)) - \sum_{i=1}^{k} 
+\log (\sigma (\mathbf z_u^T \mathbf z_{n_i})), n_i \sim P_V
+$$
+
+> **Why is the approximation valid:** Technically, this is a different objective. But Negative Sampling is a form of Noise Contrastive Estimation (NCE) which approx maximizes the log probability of softmax. New formulation corresponds to using a logistic regression (sigmoid func.) to distinguish the target node $v$ from nodes $n_i$ sampled from background distribution $P_v$.
+
+0332
