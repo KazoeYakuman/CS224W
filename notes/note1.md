@@ -406,4 +406,56 @@ $$
 
 > **Why is the approximation valid:** Technically, this is a different objective. But Negative Sampling is a form of Noise Contrastive Estimation (NCE) which approx maximizes the log probability of softmax. New formulation corresponds to using a logistic regression (sigmoid func.) to distinguish the target node $v$ from nodes $n_i$ sampled from background distribution $P_v$.
 
-0332
+Instead of normalizing w.r.t. all nodes, just normalize against $k$ random "negative samples" $n_i$.
+
+Negative sampling allows for quick likelihood calculation.
+
+Sample $k$ negative nodes $n_i$ each with probability proportional to its degree.
+
+**Two conditions for $k$ (# negative samples):**
+
+- Higher $k$ gives more robust estimates
+
+- Higher $k$ corresponds to higher bias on negative events
+
+- In practice $k$ ranges from $5$ to $20$
+
+> **Can negative sample be any node or only the nodes not on the walk?** 
+> 
+> People often use any nodes (for efficiency). However, the most "correct" way is to use nodes not on the walk.
+
+Objective function:
+
+$$
+\mathcal L = \sum_{u\in V} \sum_{v\in N_R(u)} - \log (P(v|\mathbf z_u))
+$$
+
+
+
+###### Gradient Descent
+
+- Initialize $z_u$ at some randomized value for all nodes $u$.
+
+- Iterate until convergence:
+  
+  - For all $u$, compute the derivative $\frac {\partial \mathcal L}{ \partial z_u}$.
+  
+  - For all $u$, make a step in reverse direction of derivative: $z_u \leftarrow z_u - \eta \frac {\partial \mathcal L}{ \partial z_u}$, where $\eta$ is learning rate.
+
+**How should we randomly walk?**
+
+Simplest idea: Just run fixed-length, unbiased random walks starting from each node.
+
+The issue is that such notion of similarity is too constrained.
+
+---
+
+### Node2vec
+
+**Goal:** Embed nodes with similar network neighborhoods close in the feature space.
+
+We frame this goal as a maximum likelihood optimization problem, independent to the downstream prediction task.
+
+**Key observation:** Flexible notion of network neighborhood $N_R(u)$ of node $u$ leads to rich node embeddings.
+
+Develop biased $2^{nd}$ order random walk $R$ to generate network neighborhood $N_R(u)$ of node $u$.
